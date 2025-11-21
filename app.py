@@ -15,57 +15,55 @@ st.title("🤖 Chat with my Resume")
 
 # --- SMART FILE SEARCH ---
 def find_pdf():
-    # 1. Check current folder
     current_files = os.listdir('.')
     for f in current_files:
         if f.lower().endswith(".pdf"):
             return os.path.join('.', f)
-    
-    # 2. Check parent folder (one level up)
     if os.path.exists('..'):
         parent_files = os.listdir('..')
         for f in parent_files:
             if f.lower().endswith(".pdf"):
                 return os.path.join('..', f)
-    
     return None
 
-# --- SYSTEM CHECK ---
 pdf_path = find_pdf()
-
-if not pdf_path:
-    st.error("❌ No PDF found.")
-    st.info("Debug info: Checked current folder and parent folder. Please upload a PDF to your GitHub repo.")
-    st.write(f"Current folder contents: {os.listdir('.')}")
-    if os.path.exists('..'):
-        st.write(f"Parent folder contents: {os.listdir('..')}")
-    st.stop()
-else:
-    st.success(f"✅ Found Resume: `{pdf_path}`")
 
 # --- API KEY CHECK ---
 if 'GOOGLE_API_KEY' in st.secrets:
     os.environ["GOOGLE_API_KEY"] = st.secrets['GOOGLE_API_KEY']
 else:
-    st.error("❌ Google API Key is missing. Check Streamlit Settings.")
+    st.error("❌ Google API Key is missing.")
     st.stop()
 
-# --- PROCESSING ENGINE ---
+# --- PROCESSING ENGINE (With Progress Bar) ---
 @st.cache_resource(show_spinner=False)
 def setup_knowledge_base(path):
-    with st.spinner("🧠 Reading resume... (This runs once)"):
-        try:
-            loader = PyPDFLoader(path)
-            docs = loader.load()
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            splits = text_splitter.split_documents(docs)
-            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-            vectorstore = FAISS.from_documents(splits, embeddings)
-            return vectorstore
-        except Exception as e:
-            st.error(f"Error processing PDF: {e}")
-            return None
+    # This "Status" widget looks professional and explains the wait time
+    with st.status("🚀 Booting up the AI Assistant...", expanded=True) as status:
+        
+        st.write("📥 Downloading Neural Network Model (all-MiniLM-L6-v2)...")
+        # The heavy download happens here
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        
+        st.write("📄 Reading Document...")
+        loader = PyPDFLoader(path)
+        docs = loader.load()
+        
+        st.write("✂️ Splitting text into chunks...")
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        splits = text_splitter.split_documents(docs)
+        
+        st.write("🧠 Building Vector Index...")
+        vectorstore = FAISS.from_documents(splits, embeddings)
+        
+        status.update(label="✅ System Ready!", state="complete", expanded=False)
+        return vectorstore
 
+if not pdf_path:
+    st.error("❌ No PDF found in the repository.")
+    st.stop()
+
+# Run the setup
 vectorstore = setup_knowledge_base(pdf_path)
 
 if vectorstore:
