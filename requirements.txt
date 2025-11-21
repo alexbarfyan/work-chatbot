@@ -1,8 +1,8 @@
 streamlit
-langchain-google-genai==1.0.3
-langchain==0.2.1
-langchain-community==0.2.1
-langchain-text-splitters==0.2.0
+langchain==0.2.5
+langchain-community==0.2.5
+langchain-google-genai==1.0.6
+langchain-text-splitters==0.2.1
 faiss-cpu
 pypdf
 python-dotenv
