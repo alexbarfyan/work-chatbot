@@ -2,7 +2,8 @@ import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+# This is the updated import line that fixes the error:
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -20,7 +21,7 @@ st.title("🤖 Chat with your Documents")
 with st.sidebar:
     st.header("Settings")
     
-    # You can hardcode this if you want, but using secrets is safer (explained in deployment)
+    # Check for secrets first, otherwise use input
     if 'GOOGLE_API_KEY' in st.secrets:
         api_key = st.secrets['GOOGLE_API_KEY']
     else:
@@ -34,22 +35,20 @@ if api_key and uploaded_file:
     # Set the API Key
     os.environ["GOOGLE_API_KEY"] = api_key
 
-    # 1. Process the PDF (Cached so it doesn't reload on every question)
+    # 1. Process the PDF (Cached)
     @st.cache_resource(show_spinner=False)
     def process_pdf(file):
         with st.spinner("Processing PDF..."):
-            # Save file to a temporary location because PyPDFLoader needs a path
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                 temp_file.write(file.read())
                 temp_path = temp_file.name
 
-            # Load and split text
             loader = PyPDFLoader(temp_path)
             docs = loader.load()
+            # Using the fixed text splitter import
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
             splits = text_splitter.split_documents(docs)
 
-            # Create Vector Store
             embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
             vectorstore = FAISS.from_documents(splits, embeddings)
             return vectorstore
@@ -84,26 +83,21 @@ if api_key and uploaded_file:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Display chat history
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # User Input
     if user_question := st.chat_input("Ask a question about your document..."):
-        # Display user message
         st.session_state.messages.append({"role": "user", "content": user_question})
         with st.chat_message("user"):
             st.markdown(user_question)
 
-        # Generate Response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 response = rag_chain.invoke({"input": user_question})
                 answer = response['answer']
                 st.markdown(answer)
         
-        # Save assistant message
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
 elif not api_key:
