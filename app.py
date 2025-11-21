@@ -1,6 +1,5 @@
 import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
-# We swap the Google Embeddings for a free, local one:
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -40,11 +39,10 @@ if api_key and uploaded_file:
             loader = PyPDFLoader(temp_path)
             docs = loader.load()
             
-            # Split text into chunks
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
             splits = text_splitter.split_documents(docs)
 
-            # Create Vector Store using LOCAL embeddings (No Quota Errors!)
+            # using generic local embeddings to avoid quotas
             embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
             vectorstore = FAISS.from_documents(splits, embeddings)
             return vectorstore
@@ -52,8 +50,8 @@ if api_key and uploaded_file:
     vectorstore = process_pdf(uploaded_file)
     retriever = vectorstore.as_retriever()
 
-    # 2. Setup the Brain (Gemini)
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
+    # 2. Setup the Brain (Gemini Pro - The Standard Model)
+    llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0)
     
     system_prompt = (
         "You are an assistant for question-answering tasks. "
